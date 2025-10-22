@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental || false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.4"]
+        rails: ["7.1", "7.2", "8.0", "8.1"]
+        experimental: [false]
+        include:
+          - ruby: "3.4"
+            rails: "edge"
+            experimental: true
+          - ruby: "head"
+            rails: "8.0"
+            experimental: true
+          - ruby: "head"
+            rails: "edge"
+            experimental: true
+
+    name: Ruby ${{ matrix.ruby }} / Rails ${{ matrix.rails }}${{ matrix.experimental && ' (experimental)' || '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: false
+
+      - name: Install dependencies
+        env:
+          RAILS_VERSION: ${{ matrix.rails }}
+        run: |
+          gem install bundler
+          bundle install --jobs 4 --retry 3
+
+      - name: Run tests
+        run: MT_NO_PLUGINS=1 bundle exec rake test
+
+      - name: Run RuboCop
+        run: bundle exec rubocop
+        continue-on-error: true
