@@ -39,9 +39,9 @@ class Employee < ApplicationRecord
 
   # Termination
   transition :terminate,
-             from: [:enrolled, :suspended],
-             to: :terminated,
-             timestamp: :terminated_on do
+    from: [:enrolled, :suspended],
+    to: :terminated,
+    timestamp: :terminated_on do
     notify_employee(:employee_termination)
     disable_access
     archive_data
@@ -49,10 +49,10 @@ class Employee < ApplicationRecord
 
   # Reactivation with business rule
   transition :reactivate,
-             from: [:suspended, :terminated],
-             to: :enrolled,
-             timestamp: :enrolled_on,
-             guard: :eligible_for_reactivation? do
+    from: [:suspended, :terminated],
+    to: :enrolled,
+    timestamp: :enrolled_on,
+    guard: :eligible_for_reactivation? do
     notify_employee(:employee_reactivation)
     restore_access
   end
@@ -60,7 +60,7 @@ class Employee < ApplicationRecord
   # PIN reset
   transition :reset_pin, from: [:enrolled, :reset_pin], to: :reset_pin do
     pin_code = generate_otp!
-    notify_employee(:employee_reset_password, additional_keywords: { temporary_reset_pin: pin_code })
+    notify_employee(:employee_reset_password, additional_keywords: {temporary_reset_pin: pin_code})
   end
 
   private

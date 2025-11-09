@@ -44,99 +44,99 @@ class Order < ApplicationRecord
 
   # Order lifecycle transitions
   transition :process,
-             from: :pending,
-             to: :processing,
-             timestamp: :processing_at do
+    from: :pending,
+    to: :processing,
+    timestamp: :processing_at do
     notify_customer(:order_processing)
     allocate_inventory
   end
 
   transition :complete,
-             from: :processing,
-             to: :completed,
-             timestamp: :completed_at,
-             guard: -> { payment_status == "paid" && fulfillment_status == "delivered" }
+    from: :processing,
+    to: :completed,
+    timestamp: :completed_at,
+    guard: -> { payment_status == "paid" && fulfillment_status == "delivered" }
 
   transition :cancel,
-             from: [:pending, :processing],
-             to: :cancelled,
-             timestamp: :cancelled_at do
+    from: [:pending, :processing],
+    to: :cancelled,
+    timestamp: :cancelled_at do
     release_inventory
     notify_customer(:order_cancelled)
   end
 
   # Payment lifecycle transitions
   transition :authorize_payment,
-             from: :unpaid,
-             to: :authorized,
-             column: :payment_status,
-             timestamp: :payment_authorized_at do
+    from: :unpaid,
+    to: :authorized,
+    column: :payment_status,
+    timestamp: :payment_authorized_at do
     PaymentProcessor.authorize(self)
     notify_customer(:payment_authorized)
   end
 
   transition :capture_payment,
-             from: :authorized,
-             to: :paid,
-             column: :payment_status,
-             timestamp: :paid_at do
+    from: :authorized,
+    to: :paid,
+    column: :payment_status,
+    timestamp: :paid_at do
     PaymentProcessor.capture(self)
     notify_customer(:payment_captured)
     trigger_fulfillment
   end
 
   transition :refund_payment,
-             from: :paid,
-             to: :refunded,
-             column: :payment_status,
-             timestamp: :refunded_at,
-             guard: :can_refund? do
+    from: :paid,
+    to: :refunded,
+    column: :payment_status,
+    timestamp: :refunded_at,
+    guard: :can_refund? do
     PaymentProcessor.refund(self)
     notify_customer(:payment_refunded)
   end
 
   transition :fail_payment,
-             from: [:unpaid, :authorized],
-             to: :failed,
-             column: :payment_status do
+    from: [:unpaid, :authorized],
+    to: :failed,
+    column: :payment_status do
     notify_customer(:payment_failed)
     cancel if pending? || processing?
   end
 
   # Fulfillment lifecycle transitions
   transition :prepare_shipment,
-             from: :unfulfilled,
-             to: :preparing,
-             column: :fulfillment_status,
-             guard: -> { paid? },
-             timestamp: :preparing_at do
+    from: :unfulfilled,
+    to: :preparing,
+    column: :fulfillment_status,
+    guard: -> { paid? },
+    timestamp: :preparing_at do
     notify_warehouse(:prepare_order, order_id: id)
   end
 
   transition :ship_order,
-             from: :preparing,
-             to: :shipped,
-             column: :fulfillment_status,
-             timestamp: :shipped_at do
+    from: :preparing,
+    to: :shipped,
+    column: :fulfillment_status,
+    timestamp: :shipped_at do
     generate_tracking_number
     notify_customer(:order_shipped, tracking_number:)
   end
 
   transition :deliver_order,
-             from: :shipped,
-             to: :delivered,
-             column: :fulfillment_status,
-             timestamp: :delivered_at do
+    from: :shipped,
+    to: :delivered,
+    column: :fulfillment_status,
+    timestamp: :delivered_at do
     notify_customer(:order_delivered)
     complete if processing?
   end
 
   transition :return_order,
-             from: [:shipped, :delivered],
-             to: :returned,
-             column: :fulfillment_status,
-             timestamp: :returned_at,
-             guard: :can_return? do
+    from: [:shipped, :delivered],
+    to: :returned,
+    column: :fulfillment_status,
+    timestamp: :returned_at,
+    guard: :can_return? do
     initiate_return_process
     refund_payment if paid?
   end
