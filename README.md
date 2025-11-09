@@ -39,7 +39,7 @@ class Order < ApplicationRecord
 
   state_column :status
 
-  enum :status, { pending: 0, processing: 1, completed: 2, cancelled: 3 }
+  enum :status, { pending: "pending", processing: "processing", completed: "completed", cancelled: "cancelled" }
 
   # Simple transition
   transition :process, from: :pending, to: :processing
@@ -68,7 +68,7 @@ class Employee < ApplicationRecord
 
   state_column :state
 
-  enum :state, { created: 0, invited: 1, enrolled: 2, suspended: 3, terminated: 4 }
+  enum :state, { created: "created", invited: "invited", enrolled: "enrolled", suspended: "suspended", terminated: "terminated" }
 
   transition :invite, from: :created, to: :invited
   transition :enroll, from: :invited, to: :enrolled
@@ -106,7 +106,7 @@ class Employee < ApplicationRecord
   include SimpleState
 
   state_column :state
-  enum :state, { suspended: 0, terminated: 1, enrolled: 2 }
+  enum :state, { suspended: "suspended", terminated: "terminated", enrolled: "enrolled" }
 
   transition :reactivate,
              from: [:suspended, :terminated],
@@ -221,7 +221,103 @@ Payload includes:
 }
 ```
 
-### 7. Error Handling
+### 7. Multiple State Columns
+
+SimpleState supports models with **multiple enum columns**, allowing independent state machines for different aspects of your model:
+
+```ruby
+class Order < ApplicationRecord
+  include SimpleState
+
+  enum :status, { pending: "pending", processing: "processing", completed: "completed", cancelled: "cancelled" }
+  enum :payment_status, { unpaid: "unpaid", paid: "paid", refunded: "refunded" }
+  enum :fulfillment_status, { unfulfilled: "unfulfilled", shipped: "shipped", delivered: "delivered" }
+
+  # Set default state column (optional)
+  state_column :status
+
+  # Status transitions (uses default column)
+  transition :process, from: :pending, to: :processing
+  transition :complete, from: :processing, to: :completed
+  transition :cancel, from: [:pending, :processing], to: :cancelled
+
+  # Payment transitions (explicit column)
+  transition :pay, from: :unpaid, to: :paid, column: :payment_status, timestamp: :paid_at
+  transition :refund, from: :paid, to: :refunded, column: :payment_status
+
+  # Fulfillment transitions (explicit column with guard)
+  transition :ship,
+             from: :unfulfilled,
+             to: :shipped,
+             column: :fulfillment_status,
+             timestamp: :shipped_at,
+             guard: :can_ship?
+
+  transition :deliver,
+             from: :shipped,
+             to: :delivered,
+             column: :fulfillment_status,
+             timestamp: true
+
+  def can_ship?
+    paid?
+  end
+end
+
+# Usage
+order = Order.create!(
+  status: :pending,
+  payment_status: :unpaid,
+  fulfillment_status: :unfulfilled
+)
+
+order.process       # Changes status to :processing
+order.pay           # Changes payment_status to :paid
+order.ship          # Changes fulfillment_status to :shipped (guard passes)
+order.complete      # Changes status to :completed
+order.deliver       # Changes fulfillment_status to :delivered
+
+# Each column's state is independent
+order.status                # => "completed"
+order.payment_status        # => "paid"
+order.fulfillment_status    # => "delivered"
+```
+
+#### Without a Default Column
+
+If you prefer to be explicit, you can omit `state_column` and specify `column:` for every transition:
+
+```ruby
+class Order < ApplicationRecord
+  include SimpleState
+
+  enum :status, { pending: "pending", processing: "processing", completed: "completed" }
+  enum :payment_status, { unpaid: "unpaid", paid: "paid", refunded: "refunded" }
+
+  # All transitions must specify column
+  transition :process, from: :pending, to: :processing, column: :status
+  transition :pay, from: :unpaid, to: :paid, column: :payment_status
+end
+```
+
+#### Benefits of Multiple Columns
+
+- **Separation of Concerns**: Different aspects of your model (payment, shipping, approval) can have independent state machines
+- **Parallel Workflows**: Process orders while waiting for payment, or handle refunds independently of fulfillment
+- **Clear Intent**: Each transition explicitly states which aspect of the model it affects
+- **Type Safety**: State validation happens per column at class load time
+
+#### can_transition? with Multiple Columns
+
+The `can_transition?` helper works seamlessly with multiple columns:
+
+```ruby
+order.can_transition?(:process)  # Checks status column
+order.can_transition?(:pay)      # Checks payment_status column
+order.can_transition?(:ship)     # Checks fulfillment_status + guard
+```
+
+### 8. Error Handling
 
 SimpleState provides rich error objects:
 
@@ -239,81 +335,41 @@ end
 
 All transitions are wrapped in database transactions and automatically rollback on failure.
 
-## Real-World Example
+## Real-World Examples
 
-Here's a complete example from a production application:
+See the [examples](examples/) directory for complete, production-ready implementations:
+
+### [Employee Lifecycle](examples/employee_lifecycle.rb) (Single State Column)
+
+A complete employee lifecycle management system demonstrating:
+- Single state machine for employee status
+- Invitation, enrollment, suspension, and termination flows
+- Guard-based reactivation eligibility (90-day rule for terminated employees)
+- Automatic notifications and access control
+- PIN reset functionality
 
 ```ruby
-class Employee < ApplicationRecord
-  include SimpleState
+employee = Employee.create!(state: :created)
+employee.invite     # Sends invitation
+employee.enroll     # Enrolls employee
+employee.suspend    # Disables access
+employee.reactivate # Restores access (if eligible)
+```
 
-  state_column :state
+### [E-Commerce Order](examples/ecommerce_order.rb) (Multiple State Columns)
 
-  enum :state, {
-    created: "created",
-    invited: "invited",
-    enrolled: "enrolled",
-    suspended: "suspended",
-    terminated: "terminated",
-    reset_pin: "reset_pin"
-  }
+A sophisticated order system with three independent state machines:
+- **Order lifecycle**: pending → processing → completed
+- **Payment lifecycle**: unpaid → authorized → paid → refunded
+- **Fulfillment lifecycle**: unfulfilled → preparing → shipped → delivered
 
-  # Invitation flow
-  transition :invite, from: :created, to: :invited, timestamp: :invited_on do
-    notify_employee(:employee_invitation)
-  end
+Features cross-state-machine guards, automatic transitions, and comprehensive business rules.
 
-  # Suspension
-  transition :suspend, from: :enrolled, to: :suspended, timestamp: :suspended_on do
-    notify_employee(:employee_suspension)
-    disable_access
-  end
-
-  # Termination
-  transition :terminate,
-             from: [:enrolled, :suspended],
-             to: :terminated,
-             timestamp: :terminated_on do
-    notify_employee(:employee_termination)
-    disable_access
-    archive_data
-  end
-
-  # Reactivation with business rule
-  transition :reactivate,
-             from: [:suspended, :terminated],
-             to: :enrolled,
-             timestamp: :enrolled_on,
-             guard: :eligible_for_reactivation? do
-    notify_employee(:employee_reactivation)
-    restore_access
-  end
-
-  # PIN reset
-  transition :reset_pin, from: [:enrolled, :reset_pin], to: :reset_pin do
-    pin_code = generate_otp!
-    notify_employee(:employee_reset_password, additional_keywords: { temporary_reset_pin: pin_code })
-  end
-
-  private
-
-  def eligible_for_reactivation?
-    return true if suspended?
-    return true unless terminated_on
-    terminated_on >= 90.days.ago.to_date
-  end
-
-  def notify_employee(message_type, additional_keywords: {})
-    Message.create_message(
-      to: person,
-      message_type:,
-      keywords: {
-        first_name: person.first_name,
-        employer_name: company.name
-      }.merge(additional_keywords)
-    )
-  end
-end
+```ruby
+order.process           # Start processing
+order.capture_payment   # Charge customer
+order.ship_order        # Send package
+order.deliver_order     # Mark delivered, auto-complete order
 ```
 
 ## Event Monitoring Example
