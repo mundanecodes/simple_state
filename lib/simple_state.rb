@@ -80,15 +80,22 @@ module SimpleState
     # @param to [Symbol] target state
     # @param allowed_from [Symbol, Array<Symbol>] states allowed to transition from
     # @param event [Symbol] transition event name
+    # @param column [Symbol, nil] column to use for this transition (defaults to simple_state_column)
     # @param timestamp_field [Symbol, true, nil] column to update with current time; true will auto-generate "#{to}_at"
     # @param guard [Symbol, Proc, nil] optional guard method or block that must return true
     # @yield optional block to execute after state update
     # @return [Boolean] true if transition succeeds
     # @raise [TransitionError] if transition is invalid or guard fails
     # @raise [ActiveRecord::RecordInvalid] if update! fails
-    def transition_state(to:, allowed_from:, event:, timestamp_field: nil, guard: nil, &block)
+    def transition_state(to:, allowed_from:, event:, column: nil, timestamp_field: nil, guard: nil, &block)
       allowed_from = Array(allowed_from).map(&:to_sym).freeze
-      current_state_value = public_send(self.class.simple_state_column)
+
+      # Determine which column to use for this transition
+      state_column = column || self.class.simple_state_column
+
+      raise ArgumentError, "No state column specified. Use 'state_column :column_name' or provide 'column:' parameter" unless state_column
+
+      current_state_value = public_send(state_column)
 
       fail_transition!(to:, from: nil, event:, outcome: :invalid) if current_state_value.nil?
 
@@ -102,12 +109,12 @@ module SimpleState
       end
 
       transaction do
-        attrs = {self.class.simple_state_column => to}
+        attrs = {state_column => to}
 
         # Simple timestamp support: true => "#{to}_at", or custom column
         if timestamp_field
-          column = (timestamp_field == true) ? "#{to}_at" : timestamp_field
-          attrs[column] = Time.current
+          timestamp_column = (timestamp_field == true) ? "#{to}_at" : timestamp_field
+          attrs[timestamp_column] = Time.current
         end
 
         update!(attrs)
@@ -138,7 +145,12 @@ module SimpleState
       return false unless transition
 
       allowed_from = Array(transition[:from]).map(&:to_sym)
-      current_state_value = public_send(self.class.simple_state_column)
+
+      # Use the column specified in the transition, or fall back to default
+      state_column = transition[:column] || self.class.simple_state_column
+      return false unless state_column
+
+      current_state_value = public_send(state_column)
       return false if current_state_value.nil?
 
       current_state = current_state_value.to_sym
@@ -200,17 +212,18 @@ module SimpleState
     # Validates that a state exists in the enum definition
     #
     # @param state [Symbol] the state to validate
+    # @param column [Symbol] the column to validate against
     # @raise [ArgumentError] if state is not defined in the enum
     # @api private
-    def validate_state_exists!(state)
-      return unless simple_state_column
+    def validate_state_exists!(state, column:)
+      return unless column
 
-      enum_accessor = simple_state_column.to_s.pluralize
+      enum_accessor = column.to_s.pluralize
       return unless respond_to?(enum_accessor)
 
       valid_states = public_send(enum_accessor).keys.map(&:to_sym)
       unless valid_states.include?(state.to_sym)
-        raise ArgumentError, "Invalid state :#{state} for #{simple_state_column}. Valid states: #{valid_states.join(", ")}"
+        raise ArgumentError, "Invalid state :#{state} for #{column}. Valid states: #{valid_states.join(", ")}"
       end
     end
 
@@ -219,6 +232,7 @@ module SimpleState
     # @param name [Symbol] method name for the transition
     # @param to [Symbol] target state
     # @param from [Symbol, Array<Symbol>] allowed source states
+    # @param column [Symbol, nil] column to use for this transition (defaults to simple_state_column)
     # @param timestamp [Symbol, true, nil] column to update with current time
     # @param guard [Symbol, Proc, nil] optional guard method/block
     # @yield block executed after state update but within the transaction
@@ -226,17 +240,24 @@ module SimpleState
     #   transition :activate, from: :pending, to: :active
     # @example With timestamp
     #   transition :complete, from: :active, to: :completed, timestamp: true
+    # @example With multiple columns
+    #   transition :pay, from: :unpaid, to: :paid, column: :payment_status
     # @example With guard and callback
     #   transition :reactivate, from: :suspended, to: :active, guard: :can_reactivate? do
     #     send_notification
     #   end
-    def transition(name, to:, from:, timestamp: nil, guard: nil, &block)
+    def transition(name, to:, from:, column: nil, timestamp: nil, guard: nil, &block)
+      # Determine which column to validate against
+      state_column = column || simple_state_column
+
+      raise ArgumentError, "No state column specified. Use 'state_column :column_name' or provide 'column:' parameter" unless state_column
+
       # Validate that target and source states exist in the enum
-      validate_state_exists!(to)
-      Array(from).each { |state| validate_state_exists!(state) }
+      validate_state_exists!(to, column: state_column)
+      Array(from).each { |state| validate_state_exists!(state, column: state_column) }
 
       self.simple_state_transitions = simple_state_transitions.merge(
-        name.to_sym => {to:, from:, timestamp:, guard:, block:}.freeze
+        name.to_sym => {to:, from:, column:, timestamp:, guard:, block:}.freeze
       ).freeze
 
       define_method(name) do
@@ -244,6 +265,7 @@ module SimpleState
           to:,
           allowed_from: from,
           event: name,
+          column:,
           timestamp_field: timestamp,
           guard:,
           &block
