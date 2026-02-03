@@ -20,7 +20,7 @@ end
 
 # Test model with multiple state columns and default state_column
 class MultiStateOrder < ActiveRecord::Base
-  include SimpleState
+  include LiteState
 
   # Define enums for all state columns
   enum :status, {
@@ -77,7 +77,7 @@ end
 class NoDefaultStateOrder < ActiveRecord::Base
   self.table_name = "multi_state_orders"
 
-  include SimpleState
+  include LiteState
 
   enum :status, {pending: "pending", processing: "processing", completed: "completed"}
   enum :payment_status, {unpaid: "unpaid", paid: "paid", refunded: "refunded"}
@@ -179,7 +179,7 @@ class TestMultipleColumns < Minitest::Test
     )
 
     # Cannot ship because not paid
-    error = assert_raises(SimpleState::TransitionError) do
+    error = assert_raises(LiteState::TransitionError) do
       order.ship
     end
 
@@ -237,7 +237,7 @@ class TestMultipleColumns < Minitest::Test
       fulfillment_status: :unfulfilled
     )
 
-    error = assert_raises(SimpleState::TransitionError) do
+    error = assert_raises(LiteState::TransitionError) do
       order.refund # Cannot refund when unpaid
     end
 
@@ -311,14 +311,14 @@ class TestMultipleColumns < Minitest::Test
 
   def test_transition_metadata_includes_column
     # Check default column transition
-    process_transition = MultiStateOrder.simple_state_transitions[:process]
+    process_transition = MultiStateOrder.lite_state_transitions[:process]
     assert_nil process_transition[:column] # Uses default
 
     # Check explicit column transitions
-    pay_transition = MultiStateOrder.simple_state_transitions[:pay]
+    pay_transition = MultiStateOrder.lite_state_transitions[:pay]
     assert_equal :payment_status, pay_transition[:column]
 
-    ship_transition = MultiStateOrder.simple_state_transitions[:ship]
+    ship_transition = MultiStateOrder.lite_state_transitions[:ship]
     assert_equal :fulfillment_status, ship_transition[:column]
   end
 
@@ -349,7 +349,7 @@ class TestMultipleColumns < Minitest::Test
         end
 
         self.table_name = "multi_state_orders"
-        include SimpleState
+        include LiteState
 
         enum :status, {pending: "pending", processing: "processing"}
 
@@ -374,7 +374,7 @@ class TestMultipleColumns < Minitest::Test
         end
 
         self.table_name = "multi_state_orders"
-        include SimpleState
+        include LiteState
 
         enum :payment_status, {unpaid: "unpaid", paid: "paid"}
 
@@ -396,7 +396,7 @@ class TestMultipleColumns < Minitest::Test
         end
 
         self.table_name = "multi_state_orders"
-        include SimpleState
+        include LiteState
 
         enum :payment_status, {unpaid: "unpaid", paid: "paid"}
 

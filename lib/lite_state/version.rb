@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
-module SimpleState
+module LiteState
   VERSION = "0.2.0"
 end

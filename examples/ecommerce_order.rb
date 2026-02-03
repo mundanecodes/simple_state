@@ -14,7 +14,7 @@
 # - Comprehensive notification system
 
 class Order < ApplicationRecord
-  include SimpleState
+  include LiteState
 
   enum :status, {
     pending: "pending",
@@ -270,7 +270,7 @@ order = Order.create!(
 )
 
 order.can_transition?(:prepare_shipment)  # => false (payment not captured)
-order.prepare_shipment  # => raises SimpleState::TransitionError
+order.prepare_shipment  # => raises LiteState::TransitionError
 
 # Cannot complete order without delivery
 order.update!(payment_status: :paid, fulfillment_status: :shipped)
@@ -279,7 +279,7 @@ order.can_transition?(:complete)  # => false (not delivered yet)
 # Cannot refund after 90 days
 order.update!(paid_at: 100.days.ago)
 order.can_transition?(:refund_payment)  # => false
-order.refund_payment  # => raises SimpleState::TransitionError
+order.refund_payment  # => raises LiteState::TransitionError
 
 # Example 6: Cross-State Machine Interactions
 # --------------------------------------------

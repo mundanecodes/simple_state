@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require_relative "lib/simple_state/version"
+require_relative "lib/lite_state/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "simple_state"
-  spec.version = SimpleState::VERSION
+  spec.name = "lite_state"
+  spec.version = LiteState::VERSION
   spec.authors = ["charles chuck"]
   spec.email = ["chalcchuck@gmail.com"]
 
   spec.summary = "A lightweight state machine for ActiveRecord models with guards, timestamps, and event instrumentation"
   spec.description = <<~DESC
-    SimpleState is a minimal yet powerful state machine for ActiveRecord models. It provides:
+    LiteState is a minimal yet powerful state machine for ActiveRecord models. It provides:
     - Clean DSL for defining state transitions
     - Guard conditions to prevent invalid transitions
     - Automatic timestamp tracking
@@ -18,14 +18,14 @@ Gem::Specification.new do |spec|
     - Transaction safety
     - Enum validation
   DESC
-  spec.homepage = "https://github.com/mundanecodes/simple_state"
+  spec.homepage = "https://github.com/mundanecodes/lite_state"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.4.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/mundanecodes/simple_state"
-  spec.metadata["bug_tracker_uri"] = "https://github.com/mundanecodes/simple_state/issues"
-  spec.metadata["documentation_uri"] = "https://rubydoc.info/gems/simple_state"
+  spec.metadata["source_code_uri"] = "https://github.com/mundanecodes/lite_state"
+  spec.metadata["bug_tracker_uri"] = "https://github.com/mundanecodes/lite_state/issues"
+  spec.metadata["documentation_uri"] = "https://rubydoc.info/gems/lite_state"
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
