@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
-require "simple_state"
+require "lite_state"
 
 require "minitest/autorun"
 require "active_record"
@@ -41,7 +41,7 @@ end
 
 # Test models
 class Order < ActiveRecord::Base
-  include SimpleState
+  include LiteState
 
   state_column :status
 
@@ -58,7 +58,7 @@ class Order < ActiveRecord::Base
 end
 
 class Employee < ActiveRecord::Base
-  include SimpleState
+  include LiteState
 
   state_column :state
 
@@ -98,7 +98,7 @@ class Employee < ActiveRecord::Base
 end
 
 class Document < ActiveRecord::Base
-  include SimpleState
+  include LiteState
 
   state_column :status
 

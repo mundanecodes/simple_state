@@ -2,7 +2,7 @@
 
 require "test_helper"
 
-class TestSimpleState < Minitest::Test
+class TestLiteState < Minitest::Test
   def setup
     # Clear all test data
     Order.delete_all
@@ -11,7 +11,7 @@ class TestSimpleState < Minitest::Test
   end
 
   def test_that_it_has_a_version_number
-    refute_nil ::SimpleState::VERSION
+    refute_nil ::LiteState::VERSION
   end
 
   # Basic transition tests
@@ -54,7 +54,7 @@ class TestSimpleState < Minitest::Test
   def test_invalid_transition_raises_error
     order = Order.create!(status: :completed)
 
-    error = assert_raises(SimpleState::TransitionError) do
+    error = assert_raises(LiteState::TransitionError) do
       order.process
     end
 
@@ -77,7 +77,7 @@ class TestSimpleState < Minitest::Test
   def test_transition_with_guard_failure
     employee = Employee.create!(state: :terminated, terminated_date: 91.days.ago.to_date)
 
-    error = assert_raises(SimpleState::TransitionError) do
+    error = assert_raises(LiteState::TransitionError) do
       employee.reactivate
     end
 
@@ -191,7 +191,7 @@ class TestSimpleState < Minitest::Test
 
     order = Order.create!(status: :completed)
 
-    assert_raises(SimpleState::TransitionError) do
+    assert_raises(LiteState::TransitionError) do
       order.process
     end
 
@@ -213,7 +213,7 @@ class TestSimpleState < Minitest::Test
 
     employee = Employee.create!(state: :terminated, terminated_date: 91.days.ago.to_date)
 
-    assert_raises(SimpleState::TransitionError) do
+    assert_raises(LiteState::TransitionError) do
       employee.reactivate
     end
 
@@ -254,7 +254,7 @@ class TestSimpleState < Minitest::Test
         end
 
         self.table_name = "orders"
-        include SimpleState
+        include LiteState
 
         state_column :status
         enum :status, {pending: "pending", processing: "processing"}
@@ -272,7 +272,7 @@ class TestSimpleState < Minitest::Test
         end
 
         self.table_name = "orders"
-        include SimpleState
+        include LiteState
 
         state_column :status
         enum :status, {pending: "pending", processing: "processing"}
@@ -308,12 +308,12 @@ class TestSimpleState < Minitest::Test
   end
 
   def test_transition_stores_transition_metadata
-    assert_equal 3, Order.simple_state_transitions.size
-    assert Order.simple_state_transitions.key?(:process)
-    assert Order.simple_state_transitions.key?(:complete)
-    assert Order.simple_state_transitions.key?(:cancel)
+    assert_equal 3, Order.lite_state_transitions.size
+    assert Order.lite_state_transitions.key?(:process)
+    assert Order.lite_state_transitions.key?(:complete)
+    assert Order.lite_state_transitions.key?(:cancel)
 
-    process_transition = Order.simple_state_transitions[:process]
+    process_transition = Order.lite_state_transitions[:process]
     assert_equal :processing, process_transition[:to]
     assert_equal :pending, process_transition[:from]
     assert_equal true, process_transition[:timestamp]
@@ -327,7 +327,7 @@ class TestSimpleState < Minitest::Test
       end
 
       self.table_name = "documents"
-      include SimpleState
+      include LiteState
 
       state_column :status
       enum :status, {draft: "draft", pending: "pending", approved: "approved"}
@@ -343,7 +343,7 @@ class TestSimpleState < Minitest::Test
     doc1 = doc_class.create!(status: :pending)
     doc1.approval_count = 1
 
-    assert_raises(SimpleState::TransitionError) do
+    assert_raises(LiteState::TransitionError) do
       doc1.approve
     end
 

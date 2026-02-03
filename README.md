@@ -1,8 +1,8 @@
-# SimpleState
+# LiteState
 
-A lightweight, powerful state machine for ActiveRecord models. SimpleState provides a clean DSL for defining state transitions with guards, timestamps, and comprehensive event instrumentation.
+A lightweight, powerful state machine for ActiveRecord models. LiteState provides a clean DSL for defining state transitions with guards, timestamps, and comprehensive event instrumentation.
 
-## Why SimpleState?
+## Why LiteState?
 
 - **Minimal & Fast**: No complex dependencies or overhead
 - **ActiveRecord Native**: Works seamlessly with Rails enums
@@ -16,7 +16,7 @@ A lightweight, powerful state machine for ActiveRecord models. SimpleState provi
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'simple_state'
+gem 'lite_state'
 ```
 
 And then execute:
@@ -28,14 +28,14 @@ bundle install
 Or install it yourself as:
 
 ```bash
-gem install simple_state
+gem install lite_state
 ```
 
 ## Quick Start
 
 ```ruby
 class Order < ApplicationRecord
-  include SimpleState
+  include LiteState
 
   state_column :status
 
@@ -64,7 +64,7 @@ Define clean, declarative transitions:
 
 ```ruby
 class Employee < ApplicationRecord
-  include SimpleState
+  include LiteState
 
   state_column :state
 
@@ -103,7 +103,7 @@ Prevent invalid transitions with business logic:
 
 ```ruby
 class Employee < ApplicationRecord
-  include SimpleState
+  include LiteState
 
   state_column :state
   enum :state, { suspended: "suspended", terminated: "terminated", enrolled: "enrolled" }
@@ -121,7 +121,7 @@ class Employee < ApplicationRecord
 end
 
 employee = Employee.create!(state: :terminated, terminated_on: 100.days.ago)
-employee.reactivate  # => raises SimpleState::TransitionError (guard failed)
+employee.reactivate  # => raises LiteState::TransitionError (guard failed)
 
 employee.update!(terminated_on: 30.days.ago)
 employee.reactivate  # => true
@@ -180,7 +180,7 @@ employee.can_transition?(:reactivate)  # => true
 
 ### 6. Event Instrumentation
 
-SimpleState publishes ActiveSupport::Notifications events for every transition:
+LiteState publishes ActiveSupport::Notifications events for every transition:
 
 ```ruby
 # Subscribe to successful transitions
@@ -223,11 +223,11 @@ Payload includes:
 
 ### 7. Multiple State Columns
 
-SimpleState supports models with **multiple enum columns**, allowing independent state machines for different aspects of your model:
+LiteState supports models with **multiple enum columns**, allowing independent state machines for different aspects of your model:
 
 ```ruby
 class Order < ApplicationRecord
-  include SimpleState
+  include LiteState
 
   enum :status, { pending: "pending", processing: "processing", completed: "completed", cancelled: "cancelled" }
   enum :payment_status, { unpaid: "unpaid", paid: "paid", refunded: "refunded" }
@@ -289,7 +289,7 @@ If you prefer to be explicit, you can omit `state_column` and specify `column:` 
 
 ```ruby
 class Order < ApplicationRecord
-  include SimpleState
+  include LiteState
 
   enum :status, { pending: "pending", processing: "processing", completed: "completed" }
   enum :payment_status, { unpaid: "unpaid", paid: "paid", refunded: "refunded" }
@@ -319,12 +319,12 @@ order.can_transition?(:ship)     # Checks fulfillment_status + guard
 
 ### 8. Error Handling
 
-SimpleState provides rich error objects:
+LiteState provides rich error objects:
 
 ```ruby
 begin
   order.process
-rescue SimpleState::TransitionError => e
+rescue LiteState::TransitionError => e
   e.record      # => <Order id: 123>
   e.from        # => :completed
   e.to          # => :processing
@@ -420,7 +420,7 @@ end
 
 ## Testing
 
-SimpleState makes testing easy:
+LiteState makes testing easy:
 
 ```ruby
 RSpec.describe Order, type: :model do
@@ -442,7 +442,7 @@ RSpec.describe Order, type: :model do
     it "fails when not in pending state" do
       order = create(:order, status: :completed)
 
-      expect { order.process }.to raise_error(SimpleState::TransitionError)
+      expect { order.process }.to raise_error(LiteState::TransitionError)
       expect(order.reload.status).to eq("completed")
     end
 
@@ -472,7 +472,7 @@ end
 
 2. **Use Events for Monitoring**: Subscribe to transition events for logging, metrics, and alerts.
 
-3. **Validate States at Boot**: SimpleState validates states when the class loads, catching configuration errors early.
+3. **Validate States at Boot**: LiteState validates states when the class loads, catching configuration errors early.
 
 4. **Handle Failures Gracefully**: All transitions are wrapped in transactions and rollback automatically.
 
@@ -489,7 +489,7 @@ After checking out the repo, run `bin/setup` to install dependencies. Then, run 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/mundanecodes/simple_state.
+Bug reports and pull requests are welcome on GitHub at https://github.com/mundanecodes/lite_state.
 
 ## License
 

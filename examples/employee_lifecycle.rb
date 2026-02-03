@@ -13,7 +13,7 @@
 # - Complex reactivation logic based on termination date
 
 class Employee < ApplicationRecord
-  include SimpleState
+  include LiteState
 
   state_column :state
 
@@ -118,7 +118,7 @@ employee.terminate
 # Attempt reactivation after 100 days (guard fails)
 employee.update!(terminated_on: 100.days.ago)
 employee.can_transition?(:reactivate)  # => false
-employee.reactivate  # => raises SimpleState::TransitionError
+employee.reactivate  # => raises LiteState::TransitionError
 
 # Reactivation within 90 days (guard passes)
 employee.update!(terminated_on: 30.days.ago)
